@@ -29,9 +29,11 @@
 
 package org.firstinspires.ftc.teamcode;
 
+import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
@@ -43,9 +45,21 @@ import java.lang.Math;
  */
 @TeleOp(name = "Concept: NullOp", group = "Concept")
 //@Disabled
+@Config
 public class DriverControlSwerv extends OpMode {
   int L = 9;
   int W = 9;
+  static int motorflipperR= -1;
+  static int motorflipperL= 1;
+  DcMotor frontLeftMotor;
+  DcMotor backLeftMotor ;
+  DcMotor frontRghtMotor;
+  DcMotor backRightMotor;
+
+  CRServo frontLeftServo;
+  CRServo frontRightServo;
+  CRServo backLeftServo;
+  CRServo backRightServo;
 
   /*
   all measurments are in inches
@@ -53,12 +67,24 @@ public class DriverControlSwerv extends OpMode {
 
   private ElapsedTime runtime = new ElapsedTime();
 
+
+
+
   /**
    * This method will be called once, when the INIT button is pressed.
    */
   @Override
   public void init() {
     telemetry.addData("Status", "Initialized");
+    frontLeftMotor = hardwareMap.get(DcMotor.class, "FrontLeftDrive");
+    backLeftMotor = hardwareMap.get(DcMotor.class, "BackLeftDrive");
+    frontRghtMotor = hardwareMap.get(DcMotor.class, "FrontRightDrive");
+    backRightMotor = hardwareMap.get(DcMotor.class, "BackRightDrive");
+
+    frontLeftServo = hardwareMap.get(CRServo.class, "frontLeftTurn");
+    frontRightServo = hardwareMap.get(CRServo.class, "frontRightTurn");
+    backLeftServo = hardwareMap.get(CRServo.class, "backLeftTurn");
+    backRightServo = hardwareMap.get(CRServo.class, "backRightTurn");
   }
 
   /**
@@ -68,6 +94,7 @@ public class DriverControlSwerv extends OpMode {
    */
   @Override
   public void init_loop() {
+
   }
 
   /**
@@ -76,22 +103,24 @@ public class DriverControlSwerv extends OpMode {
   @Override
   public void start() {
     runtime.reset();
-    DcMotor frontLeftMotor = hardwareMap.get(DcMotor.class, "FrontLeftDrive");
-    DcMotor backLeftMotor = hardwareMap.get(DcMotor.class, "BackLeftDrive");
-    DcMotor frontRghtMotor = hardwareMap.get(DcMotor.class, "FrontRightdrive");
-    DcMotor backRightMotor = hardwareMap.get(DcMotor.class, "BackRightDrive");
 
-    Servo frontLeftServo = hardwareMap.get(Servo.class, "frontLeftTurn");
-    Servo frontRightServo = hardwareMap.get(Servo.class, "frontRightTurn");
-    Servo backLeftServo = hardwareMap.get(Servo.class, "backLeftTurn");
-    Servo backRightServo = hardwareMap.get(Servo.class, "backRightTurn");
 
+  }
+
+  /**
+   * This method will be called repeatedly during the period between when
+   * the play button is pressed and when the OpMode is stopped.
+   */
+  @Override
+  public void loop() {
+
+    telemetry.addData("Status", "Run Time: " + runtime.toString());
     double x1 = gamepad1.left_stick_x;
     double x2 = gamepad1.right_stick_x;
-    double y1 = gamepad1.left_stick_y;
+    double y1 = -gamepad1.left_stick_y;
 
     double r = Math.sqrt((L * L) + (W * W));
-    y1 *= -1;
+
 
     double a = x1 - x2 * (L / r);
     double b = x1 + x2 * (L / r);
@@ -108,20 +137,10 @@ public class DriverControlSwerv extends OpMode {
     double frontRightAngle = Math.atan2(b, d) / Math.PI;
     double frontLeftAngle = Math.atan2(b, c) / Math.PI;
 
-    frontLeftMotor.setPower(frontLeftSpeed);
-    backRightMotor.setPower(backRightSpeed);
-    backLeftMotor.setPower(backLeftSpeed);
-    frontRghtMotor.setPower(frontRightSpeed);
-  }
-
-
-  /**
-   * This method will be called repeatedly during the period between when
-   * the play button is pressed and when the OpMode is stopped.
-   */
-  @Override
-  public void loop() {
-    telemetry.addData("Status", "Run Time: " + runtime.toString());
+    frontLeftMotor.setPower(motorflipperL*frontLeftSpeed);
+    backRightMotor.setPower(motorflipperL*backRightSpeed);
+    backLeftMotor.setPower(motorflipperR*backLeftSpeed);
+    frontRghtMotor.setPower(motorflipperR*frontRightSpeed);
   }
 
   /**
