@@ -33,6 +33,7 @@ import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
@@ -51,6 +52,14 @@ public class DriverControlSwerv extends OpMode {
   int W = 9;
   static int motorflipperR= -1;
   static int motorflipperL= 1;
+
+  static double integralsum = 0;
+  static double kp = 0;
+  static double ki = 0;
+  static double kd = 0;
+  private double lastError = 0;
+  ElapsedTime timer = new ElapsedTime();
+
   DcMotor frontLeftMotor;
   DcMotor backLeftMotor ;
   DcMotor frontRghtMotor;
@@ -60,6 +69,11 @@ public class DriverControlSwerv extends OpMode {
   CRServo frontRightServo;
   CRServo backLeftServo;
   CRServo backRightServo;
+
+  AnalogInput backleftservo;
+  AnalogInput backrightservo;
+  AnalogInput frontleftservo;
+  AnalogInput frontrightservo;
 
   /*
   all measurments are in inches
@@ -85,6 +99,12 @@ public class DriverControlSwerv extends OpMode {
     frontRightServo = hardwareMap.get(CRServo.class, "frontRightTurn");
     backLeftServo = hardwareMap.get(CRServo.class, "backLeftTurn");
     backRightServo = hardwareMap.get(CRServo.class, "backRightTurn");
+
+    backleftservo = hardwareMap.get(AnalogInput.class, "backleftservo");
+    backrightservo = hardwareMap.get(AnalogInput.class, "backrightservo");
+    frontleftservo = hardwareMap.get(AnalogInput.class, "frontleftservo");
+    frontrightservo = hardwareMap.get(AnalogInput.class, "frontrightservo");
+
   }
 
   /**
@@ -137,10 +157,31 @@ public class DriverControlSwerv extends OpMode {
     double frontRightAngle = Math.atan2(b, d) / Math.PI;
     double frontLeftAngle = Math.atan2(b, c) / Math.PI;
 
-    frontLeftMotor.setPower(motorflipperL*frontLeftSpeed);
+   /* frontLeftMotor.setPower(motorflipperL*frontLeftSpeed);
     backRightMotor.setPower(motorflipperL*backRightSpeed);
     backLeftMotor.setPower(motorflipperR*backLeftSpeed);
-    frontRghtMotor.setPower(motorflipperR*frontRightSpeed);
+    frontRghtMotor.setPower(motorflipperR*frontRightSpeed); */
+
+    double anglebls = backleftservo.getVoltage() * 360/ backleftservo.getMaxVoltage();
+    backLeftServo.setPower(updatePID(anglebls, backLeftAngle));
+    double anglebrs = backrightservo.getVoltage() * 360/ backrightservo.getMaxVoltage();
+    backRightServo.setPower(updatePID(anglebrs, backRightAngle));
+    double anglefrs = frontrightservo.getVoltage() * 360/ frontrightservo.getMaxVoltage();
+    frontRightServo.setPower(updatePID(anglefrs, frontRightAngle));
+    double anglefls = frontleftservo.getVoltage() * 360/ frontleftservo.getMaxVoltage();
+    frontLeftServo.setPower(updatePID(anglefls, frontLeftAngle));
+
+
+  }
+
+  public double updatePID(double servoAngle, double targetAngle) {
+    double error = (targetAngle * 180) - servoAngle;
+    integralsum += timer.seconds();
+    double derivative = (error - lastError) / timer.seconds();
+    lastError = error;
+
+    timer.reset();
+    return (error * kp) + (derivative * kd) + (integralsum * ki);
   }
 
   /**
