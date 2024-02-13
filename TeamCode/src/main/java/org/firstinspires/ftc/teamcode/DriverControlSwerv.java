@@ -29,15 +29,16 @@
 
 package org.firstinspires.ftc.teamcode;
 
+import android.util.Pair;
+
+import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.config.Config;
-import com.qualcomm.robotcore.eventloop.opmode.Disabled;
+import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.HardwareMap;
-import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import java.lang.Math;
 
@@ -48,17 +49,21 @@ import java.lang.Math;
 //@Disabled
 @Config
 public class DriverControlSwerv extends OpMode {
-  int L = 9;
-  int W = 9;
-  static int motorflipperR= -1;
-  static int motorflipperL= 1;
+  int L = 11;
+  int W = 11;
+  int motorflipperR= -1;
+  int motorflipperL= 1;
 
   static double integralsum = 0;
-  static double kp = 0;
-  static double ki = 0;
-  static double kd = 0;
+  public static double kp = 0.01;
+  public static double ki = 0;
+  public static double kd = 0;
   private double lastError = 0;
+  public static double x1 = 0;
+  public static double x2 = 0;
+  public static double y1 = 0;
   ElapsedTime timer = new ElapsedTime();
+
 
   DcMotor frontLeftMotor;
   DcMotor backLeftMotor ;
@@ -70,10 +75,10 @@ public class DriverControlSwerv extends OpMode {
   CRServo backLeftServo;
   CRServo backRightServo;
 
-  AnalogInput backleftservo;
-  AnalogInput backrightservo;
-  AnalogInput frontleftservo;
-  AnalogInput frontrightservo;
+  AnalogInput backleftangle;
+  AnalogInput backrightangle;
+  AnalogInput frontleftangle;
+  AnalogInput frontrightangle;
 
   /*
   all measurments are in inches
@@ -100,10 +105,10 @@ public class DriverControlSwerv extends OpMode {
     backLeftServo = hardwareMap.get(CRServo.class, "backLeftTurn");
     backRightServo = hardwareMap.get(CRServo.class, "backRightTurn");
 
-    backleftservo = hardwareMap.get(AnalogInput.class, "backleftservo");
-    backrightservo = hardwareMap.get(AnalogInput.class, "backrightservo");
-    frontleftservo = hardwareMap.get(AnalogInput.class, "frontleftservo");
-    frontrightservo = hardwareMap.get(AnalogInput.class, "frontrightservo");
+    backleftangle = hardwareMap.get(AnalogInput.class, "back_left_angle");
+    backrightangle = hardwareMap.get(AnalogInput.class, "back_right_angle");
+    frontleftangle = hardwareMap.get(AnalogInput.class, "front_left_angle");
+    frontrightangle = hardwareMap.get(AnalogInput.class, "front_right_angle");
 
   }
 
@@ -135,9 +140,23 @@ public class DriverControlSwerv extends OpMode {
   public void loop() {
 
     telemetry.addData("Status", "Run Time: " + runtime.toString());
-    double x1 = gamepad1.left_stick_x;
-    double x2 = gamepad1.right_stick_x;
-    double y1 = -gamepad1.left_stick_y;
+    //double x1 = gamepad1.left_stick_x;
+    //double x2 = gamepad1.right_stick_x;
+    //double y1 = -gamepad1.left_stick_y;
+
+    double anglebls = -backleftangle.getVoltage() * 360/ backleftangle.getMaxVoltage() + 138; //wrap angle
+    double anglebrs = backrightangle.getVoltage() * 360/ backrightangle.getMaxVoltage() - 44;
+    double anglefrs = frontrightangle.getVoltage() * 360/ frontrightangle.getMaxVoltage() - 91;
+    double anglefls = -frontleftangle.getVoltage() * 360/ frontleftangle.getMaxVoltage() + 354;
+
+    TelemetryPacket servoCurentPositon = new TelemetryPacket();
+    servoCurentPositon.put("angle of back left servo:", anglebls);
+    servoCurentPositon.put("angle of front right servo:", anglefrs);
+    servoCurentPositon.put("angle of back right servo:", anglebrs);
+    servoCurentPositon.put("angle of front left servo:", anglefls);
+    FtcDashboard dashboard = FtcDashboard.getInstance();
+    dashboard.sendTelemetryPacket(servoCurentPositon);
+
 
     double r = Math.sqrt((L * L) + (W * W));
 
@@ -152,36 +171,66 @@ public class DriverControlSwerv extends OpMode {
     double frontRightSpeed = Math.sqrt((b * b) + (d * d));
     double frontLeftSpeed = Math.sqrt((b * b) + (c * c));
 
-    double backRightAngle = Math.atan2(a, d) / Math.PI;
-    double backLeftAngle = Math.atan2(a, c) / Math.PI;
-    double frontRightAngle = Math.atan2(b, d) / Math.PI;
-    double frontLeftAngle = Math.atan2(b, c) / Math.PI;
+    double backRightTurnAngle = (Math.atan2(a, d) / Math.PI)*180;
+    double backLeftTurnAngle = (Math.atan2(a, c) / Math.PI)*180;
+    double frontRightTurnAngle = (Math.atan2(b, d) / Math.PI)*180;
+    double frontLeftTurnAngle = (Math.atan2(b, c) / Math.PI)*180;
 
-   /* frontLeftMotor.setPower(motorflipperL*frontLeftSpeed);
+    Pair<Double, Double> PIDOutputBR = updatePID(anglebrs, backRightTurnAngle);
+    Pair<Double, Double> PIDOutputFR = updatePID(anglefrs, frontRightTurnAngle);
+    Pair<Double, Double> PIDOutputBL = updatePID(anglebls, backLeftTurnAngle);
+    Pair<Double, Double> PIDOutputLF = updatePID(anglefls, frontLeftTurnAngle);
+
+    /*frontLeftMotor.setPower(motorflipperL*frontLeftSpeed);
     backRightMotor.setPower(motorflipperL*backRightSpeed);
     backLeftMotor.setPower(motorflipperR*backLeftSpeed);
-    frontRghtMotor.setPower(motorflipperR*frontRightSpeed); */
+   frontRghtMotor.setPower(motorflipperR*frontRightSpeed);*/
 
-    double anglebls = backleftservo.getVoltage() * 360/ backleftservo.getMaxVoltage();
-    backLeftServo.setPower(updatePID(anglebls, backLeftAngle));
-    double anglebrs = backrightservo.getVoltage() * 360/ backrightservo.getMaxVoltage();
-    backRightServo.setPower(updatePID(anglebrs, backRightAngle));
-    double anglefrs = frontrightservo.getVoltage() * 360/ frontrightservo.getMaxVoltage();
-    frontRightServo.setPower(updatePID(anglefrs, frontRightAngle));
-    double anglefls = frontleftservo.getVoltage() * 360/ frontleftservo.getMaxVoltage();
-    frontLeftServo.setPower(updatePID(anglefls, frontLeftAngle));
+    backLeftServo.setPower(PIDOutputBL.first);
+    backRightServo.setPower(PIDOutputBR.first);
+    frontRightServo.setPower(PIDOutputFR.first);
+    frontLeftServo.setPower(PIDOutputLF.first);
+    TelemetryPacket wheretobe = new TelemetryPacket();
+    wheretobe.put("back left servo want",backLeftTurnAngle);
+    wheretobe.put("back right servo want", backRightTurnAngle);
+    wheretobe.put("front right servo want",frontRightTurnAngle);
+    wheretobe.put("front left angle want",frontLeftTurnAngle);
+    wheretobe.put("testLeftstickx", x1);
+    wheretobe.put("testRightstick",x2);
+    wheretobe.put("testLeftstick", y1);
+    wheretobe.put("PIDcontrollerFR:",PIDOutputFR.first);
+    wheretobe.put("PIDcontrollerFL:",PIDOutputLF.first);
+    wheretobe.put("PIDcontrollerBR:",PIDOutputBR.first);
+    wheretobe.put("PIDcontrollerBL:",PIDOutputBL.first);
+    wheretobe.put("errorFR:",PIDOutputFR.second);
+    wheretobe.put("errorFL:",PIDOutputLF.second);
+    wheretobe.put("errorBR:",PIDOutputBR.second);
+    wheretobe.put("errorBL:",PIDOutputBL.second);
+    dashboard.sendTelemetryPacket(wheretobe);
 
 
   }
 
-  public double updatePID(double servoAngle, double targetAngle) {
-    double error = (targetAngle * 180) - servoAngle;
-    integralsum += timer.seconds();
-    double derivative = (error - lastError) / timer.seconds();
-    lastError = error;
-
-    timer.reset();
-    return (error * kp) + (derivative * kd) + (integralsum * ki);
+  public Pair<Double, Double> updatePID(double servoAngle, double targetAngle) {
+//    servoAngle = angleWrap(servoAngle);
+//    targetAngle = angleWrap(targetAngle);
+    double error = angleWrap(targetAngle - servoAngle);
+//    error = angleWrap(error);
+//    integralsum += error * timer.seconds();
+//    double derivative = (error - lastError) / timer.seconds();
+//    lastError = error;
+//
+//    timer.reset();
+    return new Pair<>((error * kp), error);
+  }
+    public double angleWrap(double degree) {
+      while (degree > 180) {
+        degree -= 360;
+      }
+      while (degree < -180) {
+        degree += 360;
+      }
+      return degree;
   }
 
   /**
