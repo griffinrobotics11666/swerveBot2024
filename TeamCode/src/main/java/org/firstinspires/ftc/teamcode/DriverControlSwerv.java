@@ -59,9 +59,10 @@ public class DriverControlSwerv extends OpMode {
   public static double ki = 0;
   public static double kd = 0;
   private double lastError = 0;
-  public static double x1 = 0;
+  /*public static double x1 = 0;
   public static double x2 = 0;
   public static double y1 = 0;
+   */
   ElapsedTime timer = new ElapsedTime();
 
 
@@ -140,9 +141,9 @@ public class DriverControlSwerv extends OpMode {
   public void loop() {
 
     telemetry.addData("Status", "Run Time: " + runtime.toString());
-    //double x1 = gamepad1.left_stick_x;
-    //double x2 = gamepad1.right_stick_x;
-    //double y1 = -gamepad1.left_stick_y;
+    double x1 = gamepad1.left_stick_x;
+    double x2 = gamepad1.right_stick_x;
+    double y1 = -gamepad1.left_stick_y;
 
     double anglebls = -backleftangle.getVoltage() * 360/ backleftangle.getMaxVoltage() + 138; //wrap angle
     double anglebrs = backrightangle.getVoltage() * 360/ backrightangle.getMaxVoltage() - 44;
@@ -212,16 +213,16 @@ public class DriverControlSwerv extends OpMode {
   }
 
   public Pair<Double, Double> updatePID(double servoAngle, double targetAngle) {
-//    servoAngle = angleWrap(servoAngle);
-//    targetAngle = angleWrap(targetAngle);
+    servoAngle = angleWrap(servoAngle);
+    targetAngle = angleWrap(targetAngle);
     double error = angleWrap(targetAngle - servoAngle);
-//    error = angleWrap(error);
-//    integralsum += error * timer.seconds();
-//    double derivative = (error - lastError) / timer.seconds();
-//    lastError = error;
-//
-//    timer.reset();
-    return new Pair<>((error * kp), error);
+    error = angleWrap(error);
+    integralsum += error * timer.seconds();
+    double derivative = (error - lastError) / timer.seconds();
+    lastError = error;
+
+    timer.reset();
+    return new Pair<>((error * kp)+ (integralsum * ki) + (derivative * kd), error);
   }
     public double angleWrap(double degree) {
       while (degree > 180) {
